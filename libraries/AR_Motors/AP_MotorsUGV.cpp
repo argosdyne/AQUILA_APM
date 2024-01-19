@@ -142,7 +142,7 @@ void AP_MotorsUGV::init(uint8_t frtype)
     setup_safety_output();
 
     // setup for omni vehicles
-    if (is_omni()) {
+    if (_frame_type != FRAME_TYPE_UNDEFINED) {
         setup_omni();
     }
 }
@@ -494,7 +494,8 @@ bool AP_MotorsUGV::pre_arm_check(bool report) const
        !have_throttle &&
        !SRV_Channels::function_assigned(SRV_Channel::k_steering) &&
        !SRV_Channels::function_assigned(SRV_Channel::k_scripting1) &&
-       !has_sail()) {
+       !has_sail() &&
+       !is_omni()) {
         if (report) {
             GCS_SEND_TEXT(MAV_SEVERITY_CRITICAL, "PreArm: no motor, sail or scripting outputs defined");
         }

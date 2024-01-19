@@ -34,6 +34,7 @@
 #include <AP_HAL_ChibiOS/hwdef/common/watchdog.h>
 #elif CONFIG_HAL_BOARD == HAL_BOARD_SITL
 #include <AP_HAL_SITL/CANSocketIface.h>
+#include <AP_HAL_SITL/AP_HAL_SITL.h>
 #endif
 
 #define IFACE_ALL ((1U<<(HAL_NUM_CAN_IFACES))-1U)
@@ -848,6 +849,13 @@ void AP_Periph_FW::onTransferReceived(CanardInstance* canard_instance,
         handle_notify_state(canard_instance, transfer);
         break;
 #endif
+
+#ifdef HAL_PERIPH_ENABLE_RELAY
+    case UAVCAN_EQUIPMENT_HARDPOINT_COMMAND_ID:
+        handle_hardpoint_command(canard_instance, transfer);
+        break;
+#endif
+
     }
 }
 
@@ -955,6 +963,11 @@ bool AP_Periph_FW::shouldAcceptTransfer(const CanardInstance* canard_instance,
 #if defined(HAL_PERIPH_ENABLE_NOTIFY)
     case ARDUPILOT_INDICATION_NOTIFYSTATE_ID:
         *out_data_type_signature = ARDUPILOT_INDICATION_NOTIFYSTATE_SIGNATURE;
+        return true;
+#endif
+#ifdef HAL_PERIPH_ENABLE_RELAY
+    case UAVCAN_EQUIPMENT_HARDPOINT_COMMAND_ID:
+        *out_data_type_signature = UAVCAN_EQUIPMENT_HARDPOINT_COMMAND_SIGNATURE;
         return true;
 #endif
     default:
@@ -1225,19 +1238,19 @@ void AP_Periph_FW::update_rx_protocol_stats(int16_t res)
 void AP_Periph_FW::processRx(void)
 {
     AP_HAL::CANFrame rxmsg;
-    for (auto &ins : instances) {
-        if (ins.iface == NULL) {
+    for (auto &instance : instances) {
+        if (instance.iface == NULL) {
             continue;
         }
 #if HAL_NUM_CAN_IFACES >= 2
-        if (can_protocol_cached[ins.index] != AP_CAN::Protocol::DroneCAN) {
+        if (can_protocol_cached[instance.index] != AP_CAN::Protocol::DroneCAN) {
             continue;
         }
 #endif
         while (true) {
             bool read_select = true;
             bool write_select = false;
-            ins.iface->select(read_select, write_select, nullptr, 0);
+            instance.iface->select(read_select, write_select, nullptr, 0);
             if (!read_select) { // No data pending
                 break;
             }
@@ -1246,7 +1259,7 @@ void AP_Periph_FW::processRx(void)
             //palToggleLine(HAL_GPIO_PIN_LED);
             uint64_t timestamp;
             AP_HAL::CANIface::CanIOFlags flags;
-            if (ins.iface->receive(rxmsg, timestamp, flags) <= 0) {
+            if (instance.iface->receive(rxmsg, timestamp, flags) <= 0) {
                 break;
             }
 #if HAL_PERIPH_CAN_MIRROR
@@ -1267,7 +1280,7 @@ void AP_Periph_FW::processRx(void)
 #endif
             rx_frame.id = rxmsg.id;
 #if CANARD_MULTI_IFACE
-            rx_frame.iface_id = ins.index;
+            rx_frame.iface_id = instance.index;
 #endif
 
             const int16_t res = canardHandleRxFrame(&dronecan.canard, &rx_frame, timestamp);
@@ -1362,14 +1375,14 @@ void AP_Periph_FW::node_status_send(void)
                                     buffer,
                                     len);
         }
-        for (auto &ins : instances) {
+        for (auto &instance : instances) {
             uint8_t buffer[DRONECAN_PROTOCOL_CANSTATS_MAX_SIZE];
             dronecan_protocol_CanStats can_stats;
-            const AP_HAL::CANIface::bus_stats_t *bus_stats = ins.iface->get_statistics();
+            const AP_HAL::CANIface::bus_stats_t *bus_stats = instance.iface->get_statistics();
             if (bus_stats == nullptr) {
                 return;
             }
-            can_stats.interface = ins.index;
+            can_stats.interface = instance.index;
             can_stats.tx_requests = bus_stats->tx_requests;
             can_stats.tx_rejected = bus_stats->tx_rejected;
             can_stats.tx_overflow = bus_stats->tx_overflow;

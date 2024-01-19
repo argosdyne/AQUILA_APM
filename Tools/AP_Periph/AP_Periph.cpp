@@ -100,15 +100,15 @@ void AP_Periph_FW::init()
 
     can_start();
 
-#ifdef HAL_PERIPH_ENABLE_NETWORKING
-    networking_periph.init();
-#endif
-
 #if HAL_GCS_ENABLED
     stm32_watchdog_pat();
     gcs().init();
 #endif
     serial_manager.init();
+
+#ifdef HAL_PERIPH_ENABLE_NETWORKING
+    networking_periph.init();
+#endif
 
 #if HAL_GCS_ENABLED
     gcs().setup_console();
@@ -138,6 +138,10 @@ void AP_Periph_FW::init()
 
 #if AP_STATS_ENABLED
     node_stats.init();
+#endif
+
+#ifdef HAL_PERIPH_ENABLE_SERIAL_OPTIONS
+    serial_options.init();
 #endif
 
 #ifdef HAL_PERIPH_ENABLE_GPS
@@ -279,6 +283,10 @@ void AP_Periph_FW::init()
 
 #ifdef HAL_PERIPH_ENABLE_NOTIFY
     notify.init();
+#endif
+
+#ifdef HAL_PERIPH_ENABLE_RELAY
+    relay.init();
 #endif
 
 #if AP_SCRIPTING_ENABLED
